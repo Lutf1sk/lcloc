@@ -5,6 +5,7 @@
 #include <lt/mem.h>
 #include <lt/ansi.h>
 #include <lt/darr.h>
+#include <lt/ctype.h>
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -39,15 +40,96 @@ void print_line_counts(usz code, usz blank, usz comment) {
 		comment_clr, comment, reset);
 }
 
-void increment_line_type(lstr_t line) {
-	line = lt_lstr_trim_left(line);
+char* find_str_end(char* it, char* end, u32* content_state) {
+	for (; it < end; ++it) {
+		if (*it == '\\')
+			++it;
+		else if (*it == '"') {
+			*content_state = 0x00;
+			return ++it;
+		}
+	}
+	return end;
+}
 
-	if (!line.len)
+char* find_char_end(char* it, char* end, u32* content_state) {
+	for (; it < end; ++it) {
+		if (*it == '\\')
+			++it;
+		else if (*it == '\'') {
+			*content_state = 0x00;
+			return ++it;
+		}
+	}
+	return end;
+}
+
+char* find_multiline_comment_end(char* it, char* end, u32* content_state) {
+	for (; it + 1 < end; ++it) {
+		if (it[0] == '*' && it[1] == '/') {
+			*content_state = 0x00;
+			return it + 2;
+		}
+	}
+	return end;
+}
+
+void increment_line_type(lstr_t line, u32* content_state) {
+	char* it = line.str, *end = it + line.len;
+
+	b8 code = 0, comment = 0;
+
+	if (!lt_lstr_trim_left(line).len) {
 		++blank_total;
-	else if (line.len >= 2 && line.str[0] == '/' && line.str[1] == '/')
-		++comment_total;
-	else
+		return;
+	}
+
+	switch (*content_state) {
+	case 0x01: // string literal
+		code = 1;
+		it = find_str_end(it, end, content_state);
+		break;
+
+	case 0x02: // char literal
+		code = 1;
+		it = find_char_end(it, end, content_state);
+		break;
+
+	case 0x03: // multiline comment
+		comment = 1;
+		it = find_multiline_comment_end(it, end, content_state);
+		break;
+	}
+
+	for (; it < end; ++it) {
+		if (*it == '"') {
+			code = 1;
+			*content_state = 0x01;
+			it = find_str_end(it, end, content_state);
+		}
+		else if (*it == '\'') {
+			code = 1;
+			*content_state = 0x02;
+			it = find_char_end(it, end, content_state);
+		}
+		else if (end - it >= 2 && it[0] == '/' && it[1] == '*') {
+			comment = 1;
+			*content_state = 0x03;
+			it = find_multiline_comment_end(it, end, content_state);
+		}
+		else if (end - it >= 2 && it[0] == '/' && it[1] == '/') {
+			comment = 1;
+			break;
+		}
+		else if (!lt_is_space(*it)) {
+			code = 1;
+		}
+	}
+
+	if (code)
 		++code_total;
+	else if (comment)
+		++comment_total;
 }
 
 void count_lines(lstr_t path) {
@@ -94,16 +176,18 @@ void count_lines(lstr_t path) {
 	usz blank_start = blank_total;
 	usz comment_start = comment_total;
 
+	u32 content_state = 0;
+
 	char* it = contents.str, *end = it + contents.len, *line_start = it;
 	while (it < end) {
 		if (*it != '\n') {
 			++it;
 			continue;
 		}
-		increment_line_type(lt_lstr_from_range(line_start, it));
+		increment_line_type(lt_lstr_from_range(line_start, it), &content_state);
 		line_start = ++it;
 	}
-	increment_line_type(lt_lstr_from_range(line_start, it));
+	increment_line_type(lt_lstr_from_range(line_start, it), &content_state);
 
 	if (print_all) {
 		lt_printf("%S:\n", path);
