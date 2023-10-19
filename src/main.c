@@ -21,6 +21,7 @@ usz file_count = 0;
 
 b8 with_color = 0;
 b8 print_all = 0;
+b8 no_ignore = 0;
 
 void print_line_counts(usz code, usz blank, usz comment) {
 	char* code_clr = "", *blank_clr = "", *comment_clr = "", *reset = "";
@@ -164,7 +165,8 @@ void count_lines(lstr_t path) {
 		return;
 	}
 
-	if (!lt_lstr_endswith(path, CLSTR(".c")) && !lt_lstr_endswith(path, CLSTR(".h")) &&
+	if (!no_ignore &&
+		!lt_lstr_endswith(path, CLSTR(".c")) && !lt_lstr_endswith(path, CLSTR(".h")) &&
 		!lt_lstr_endswith(path, CLSTR(".cpp")) && !lt_lstr_endswith(path, CLSTR(".hpp")))
 		return;
 
@@ -216,12 +218,18 @@ int main(int argc, char** argv) {
 				"  -h, --help           Display this information.\n"
 				"  -c, --color          Display output in multiple colors.\n"
 				"  -a, --all            Print the lines of each individual file.\n"
+				"  -n, --no-ignore      Never ignore files, regardless of extension.\n"
 			);
 			return 0;
 		}
 
 		if (lt_arg_flag(&arg_it, 'c', CLSTR("color"))) {
 			with_color = 1;
+			continue;
+		}
+
+		if (lt_arg_flag(&arg_it, 'n', CLSTR("no-ignore"))) {
+			no_ignore = 1;
 			continue;
 		}
 
