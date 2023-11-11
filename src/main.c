@@ -80,7 +80,7 @@ void increment_line_type(lstr_t line, u32* content_state) {
 
 	b8 code = 0, comment = 0;
 
-	if (!lt_lstr_trim_left(line).len) {
+	if (!lt_lstrim_left(line).len) {
 		++blank_total;
 		return;
 	}
@@ -156,9 +156,9 @@ void count_lines(lstr_t path) {
 				continue;
 			while (path.str[path.len - 1] == '/')
 				path.len--;
-			lstr_t name = lt_lstr_from_cstr(ent->d_name);
+			lstr_t name = lt_lsfroms(ent->d_name);
 			cpath[lt_sprintf(cpath, "%S/%S", path, name)] = 0;
-			count_lines(lt_lstr_from_cstr(cpath));
+			count_lines(lt_lsfroms(cpath));
 		}
 
 		closedir(dir);
@@ -166,12 +166,12 @@ void count_lines(lstr_t path) {
 	}
 
 	if (!no_ignore &&
-		!lt_lstr_endswith(path, CLSTR(".c")) && !lt_lstr_endswith(path, CLSTR(".h")) &&
-		!lt_lstr_endswith(path, CLSTR(".cpp")) && !lt_lstr_endswith(path, CLSTR(".hpp")))
+		!lt_lssuffix(path, CLSTR(".c")) && !lt_lssuffix(path, CLSTR(".h")) &&
+		!lt_lssuffix(path, CLSTR(".cpp")) && !lt_lssuffix(path, CLSTR(".hpp")))
 		return;
 
 	lstr_t contents;
-	if (lt_file_read_entire(path, &contents, arena))
+	if (lt_freadallp_utf8(path, &contents, arena))
 		lt_werrf("failed to open '%S'\n", path);
 
 	usz code_start = code_total;
@@ -186,10 +186,10 @@ void count_lines(lstr_t path) {
 			++it;
 			continue;
 		}
-		increment_line_type(lt_lstr_from_range(line_start, it), &content_state);
+		increment_line_type(lt_lsfrom_range(line_start, it), &content_state);
 		line_start = ++it;
 	}
-	increment_line_type(lt_lstr_from_range(line_start, it), &content_state);
+	increment_line_type(lt_lsfrom_range(line_start, it), &content_state);
 
 	if (print_all) {
 		lt_printf("%S:\n", path);
@@ -242,7 +242,7 @@ int main(int argc, char** argv) {
 	}
 
 	for (usz i = 0; i < lt_darr_count(path_list); ++i)
-		count_lines(lt_lstr_from_cstr(path_list[i]));
+		count_lines(lt_lsfroms(path_list[i]));
 
 	lt_printf("total across %uz file(s):\n", file_count);
 	print_line_counts(code_total, blank_total, comment_total);
